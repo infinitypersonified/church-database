@@ -8,29 +8,29 @@ function MemberList() {
   const [formData, setFormData] = useState({ name: '', phone: '', address: '' });
   const [loading, setLoading] = useState(false);
 
-  // On component mount, check for dark mode preference from localStorag
+  // Theme setup on component mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    const systemPefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-    useEffect(()=>{
-        const savedTheme = localStorage.getItem('theme');
-        const systemPefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    } else if (systemPefersDark) {
+      setTheme('dark');
+    }
+  }, []);
 
-        if (savedTheme) {
-           setTheme(savedTheme);
-        }else if (systemPefersDark){
-            setTheme('dark')
-        }
-    }, []); 
+  useEffect(() => {
+    const html = document.documentElement;
+    html.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
-    useEffect(()=>{
-        const html = document.documentElement;
-        html.setAttribute('data-theme', theme);
-        localStorage.setItem('theme', theme);
-    },[theme]);
+  // Fetch members from Supabase on load
+  useEffect(() => {
+    fetchMembers();
+  }, []);
 
-    // Duplicate toggleTheme function removed
-
-
-  // Fetch members from Supabase
   const fetchMembers = async () => {
     const { data, error } = await supabase
       .from('members')
@@ -44,15 +44,12 @@ function MemberList() {
     }
   };
 
-  // Close modal for member details
   const closeModal = () => setSelectedMember(null);
 
-  // Handle form input changes
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Handle form submission to add a new member
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -62,7 +59,7 @@ function MemberList() {
       console.error('Error adding member:', error);
     } else {
       setFormData({ name: '', phone: '', address: '' });
-      fetchMembers();
+      fetchMembers(); // Refresh list after new member is added
     }
   };
 
@@ -72,7 +69,7 @@ function MemberList() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white p-6">
-      {/* Dark Mode Toggle Button */}
+      {/* Theme toggle */}
       <button
         onClick={toggleTheme}
         aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
@@ -89,7 +86,7 @@ function MemberList() {
         F3CCHURCH — THE BRIDGE CHURCH
       </h1>
 
-      {/* Form to Add New Member */}
+      {/* Form */}
       <form
         onSubmit={handleSubmit}
         className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-10 max-w-2xl mx-auto"
@@ -135,7 +132,7 @@ function MemberList() {
         </button>
       </form>
 
-      {/* Member List Table */}
+      {/* Member table */}
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white dark:bg-gray-800 rounded-xl shadow-xl">
           <thead>
@@ -173,7 +170,7 @@ function MemberList() {
         </table>
       </div>
 
-      {/* Modal for Member Details */}
+      {/* Modal */}
       {selectedMember && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6 relative">
@@ -186,19 +183,10 @@ function MemberList() {
             <h2 className="text-2xl font-bold mb-4 text-blue-800 dark:text-blue-400">
               Member Details
             </h2>
-            <p>
-              <strong>Name:</strong> {selectedMember.name}
-            </p>
-            <p>
-              <strong>Phone:</strong> {selectedMember.phone}
-            </p>
-            <p>
-              <strong>Address:</strong> {selectedMember.address}
-            </p>
-            <p>
-              <strong>Added On:</strong>{' '}
-              {new Date(selectedMember.created_at).toLocaleString()}
-            </p>
+            <p><strong>Name:</strong> {selectedMember.name}</p>
+            <p><strong>Phone:</strong> {selectedMember.phone}</p>
+            <p><strong>Address:</strong> {selectedMember.address}</p>
+            <p><strong>Added On:</strong> {new Date(selectedMember.created_at).toLocaleString()}</p>
           </div>
         </div>
       )}
