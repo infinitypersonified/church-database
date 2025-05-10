@@ -140,7 +140,7 @@ function MemberList() {
               name="role"
               value={formData.role}
               onChange={handleChange}
-              placeholder="Role (e.g. Volunteer, Admin)"
+              placeholder="Role (e.g. Volunteer, Sub-Team, Admin, Senior Pastor)"
               className="border dark:border-gray-600 rounded-lg px-4 py-2 w-full"
             />
           </div>
