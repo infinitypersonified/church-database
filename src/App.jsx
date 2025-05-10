@@ -53,10 +53,18 @@ function MemberList() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+
     const { data, error } = await supabase.from('members').insert([formData]);
+
     setLoading(false);
+
     if (error) {
-      console.error('Error adding member:', error);
+      if (error.code === '23505') {
+        alert('This member already exists! Name + Phone combo must be unique.');
+      } else {
+        console.error('Error adding member:', error);
+        alert('Something went wrong. Check console for details.');
+      }
     } else {
       setFormData({ name: '', phone: '', address: '' });
       fetchMembers(); // Refresh list after new member is added
@@ -69,7 +77,6 @@ function MemberList() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white p-6">
-      {/* Theme toggle */}
       <button
         onClick={toggleTheme}
         aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
@@ -86,7 +93,6 @@ function MemberList() {
         F3CCHURCH — THE BRIDGE CHURCH
       </h1>
 
-      {/* Form */}
       <form
         onSubmit={handleSubmit}
         className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-10 max-w-2xl mx-auto"
@@ -132,7 +138,6 @@ function MemberList() {
         </button>
       </form>
 
-      {/* Member table */}
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white dark:bg-gray-800 rounded-xl shadow-xl">
           <thead>
@@ -170,7 +175,6 @@ function MemberList() {
         </table>
       </div>
 
-      {/* Modal */}
       {selectedMember && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6 relative">
