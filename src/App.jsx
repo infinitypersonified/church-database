@@ -5,14 +5,12 @@ function MemberList() {
   const [theme, setTheme] = useState('light');
   const [members, setMembers] = useState([]);
   const [selectedMember, setSelectedMember] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    address: '',
-    isTeamMember: false,
-    role: '' // Added role to formData
-  });
+  const [formData, setFormData] = useState({ name: '', phone: '', address: '' });
   const [loading, setLoading] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [password, setPassword] = useState('');
+  const [memberToDelete, setMemberToDelete] = useState(null);
+  const [error, setError] = useState('');
 
   // Theme setup on component mount
   useEffect(() => {
@@ -40,7 +38,7 @@ function MemberList() {
   const fetchMembers = async () => {
     const { data, error } = await supabase
       .from('members')
-      .select('*') // Ensure to include 'role' in the select
+      .select('id, name, phone, address, role, created_at')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -56,10 +54,6 @@ function MemberList() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleCheckboxChange = (e) => {
-    setFormData({ ...formData, isTeamMember: e.target.checked });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -68,14 +62,29 @@ function MemberList() {
     if (error) {
       console.error('Error adding member:', error);
     } else {
-      setFormData({
-        name: '',
-        phone: '',
-        address: '',
-        isTeamMember: false,
-        role: ''
-      }); // Reset form after successful submission
+      setFormData({ name: '', phone: '', address: '' });
       fetchMembers(); // Refresh list after new member is added
+    }
+  };
+
+  const handleDelete = async () => {
+    if (password === '12345') {
+      const { data, error } = await supabase
+        .from('members')
+        .delete()
+        .match({ id: memberToDelete.id });
+
+      if (error) {
+        setError('Error deleting member');
+        console.error('Error deleting member:', error);
+      } else {
+        fetchMembers(); // Refresh list after delete
+        setShowPasswordModal(false); // Close modal
+        setPassword(''); // Clear password field
+        setError(''); // Reset error
+      }
+    } else {
+      setError('Incorrect password. Please try again.');
     }
   };
 
@@ -139,36 +148,6 @@ function MemberList() {
             className="border dark:border-gray-600 rounded-lg px-4 py-2"
           />
         </div>
-
-        {/* Team Member Checkbox */}
-        <div className="mt-4 flex items-center">
-          <input
-            type="checkbox"
-            name="isTeamMember"
-            checked={formData.isTeamMember}
-            onChange={handleCheckboxChange}
-            className="mr-2"
-          />
-          <label className="text-blue-800 dark:text-blue-400">Team Member</label>
-        </div>
-
-        {/* Role Input (only appears if Team Member is checked) */}
-        {formData.isTeamMember && (
-          <div className="mt-4">
-            <label htmlFor="role" className="block text-blue-800 dark:text-blue-400 mb-2">
-              Role (Optional)
-            </label>
-            <input
-              type="text"
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              placeholder="Role (e.g. Volunteer,Sub-Team, Senior Pastor, Admin)"
-              className="border dark:border-gray-600 rounded-lg px-4 py-2 w-full"
-            />
-          </div>
-        )}
-
         <button
           type="submit"
           className="mt-4 bg-blue-700 text-white px-6 py-2 rounded-lg hover:bg-blue-800 transition"
@@ -186,8 +165,9 @@ function MemberList() {
               <th className="py-3 px-6 text-left">Name</th>
               <th className="py-3 px-6 text-left">Phone</th>
               <th className="py-3 px-6 text-left">Address</th>
-              <th className="py-3 px-6 text-left">Role</th> {/* Added Role Column */}
+              <th className="py-3 px-6 text-left">Role</th>
               <th className="py-3 px-6 text-left">Date Added</th>
+              <th className="py-3 px-6 text-left">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -201,16 +181,25 @@ function MemberList() {
                   <td className="py-3 px-6">{member.name}</td>
                   <td className="py-3 px-6">{member.phone}</td>
                   <td className="py-3 px-6">{member.address}</td>
-                  <td className="py-3 px-6">{member.role || 'N/A'}</td> {/* Display Role */}
+                  <td className="py-3 px-6">{member.role}</td>
+                  <td className="py-3 px-6">{new Date(member.created_at).toLocaleDateString()}</td>
                   <td className="py-3 px-6">
-                    {new Date(member.created_at).toLocaleString()}
+                    <button
+                      onClick={() => {
+                        setMemberToDelete(member);
+                        setShowPasswordModal(true);
+                      }}
+                      className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="5" className="text-center py-6 text-gray-500 italic">
-                  No members found.
+                <td colSpan="6" className="py-3 px-6 text-center">
+                  No members found
                 </td>
               </tr>
             )}
@@ -218,24 +207,35 @@ function MemberList() {
         </table>
       </div>
 
-      {/* Modal */}
-      {selectedMember && (
+      {/* Password Modal */}
+      {showPasswordModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6 relative">
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-red-600 text-xl"
-              onClick={closeModal}
+              onClick={() => setShowPasswordModal(false)}
             >
               &times;
             </button>
             <h2 className="text-2xl font-bold mb-4 text-blue-800 dark:text-blue-400">
-              Member Details
+              Confirm Deletion
             </h2>
-            <p><strong>Name:</strong> {selectedMember.name}</p>
-            <p><strong>Phone:</strong> {selectedMember.phone}</p>
-            <p><strong>Address:</strong> {selectedMember.address}</p>
-            <p><strong>Role:</strong> {selectedMember.role || 'N/A'}</p> {/* Display Role */}
-            <p><strong>Added On:</strong> {new Date(selectedMember.created_at).toLocaleString()}</p>
+            <input
+              type="password"
+              placeholder="Enter Password"
+              className="border dark:border-gray-600 rounded-lg px-4 py-2 mb-4 w-full"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            {error && <p className="text-red-500 text-sm">{error}</p>}
+            <div className="flex justify-end">
+              <button
+                className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition"
+                onClick={handleDelete}
+              >
+                Confirm Delete
+              </button>
+            </div>
           </div>
         </div>
       )}
