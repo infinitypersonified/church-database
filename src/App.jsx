@@ -5,7 +5,13 @@ function MemberList() {
   const [theme, setTheme] = useState('light');
   const [members, setMembers] = useState([]);
   const [selectedMember, setSelectedMember] = useState(null);
-  const [formData, setFormData] = useState({ name: '', phone: '', address: '' });
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    address: '',
+    isTeamMember: false,
+    role: '' // Added role to formData
+  });
   const [loading, setLoading] = useState(false);
 
   // Theme setup on component mount
@@ -50,23 +56,25 @@ function MemberList() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleCheckboxChange = (e) => {
+    setFormData({ ...formData, isTeamMember: e.target.checked });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
     const { data, error } = await supabase.from('members').insert([formData]);
-
     setLoading(false);
-
     if (error) {
-      if (error.code === '23505') {
-        alert('This member already exists! Name + Phone combo must be unique.');
-      } else {
-        console.error('Error adding member:', error);
-        alert('Something went wrong. Check console for details.');
-      }
+      console.error('Error adding member:', error);
     } else {
-      setFormData({ name: '', phone: '', address: '' });
+      setFormData({
+        name: '',
+        phone: '',
+        address: '',
+        isTeamMember: false,
+        role: ''
+      }); // Reset form after successful submission
       fetchMembers(); // Refresh list after new member is added
     }
   };
@@ -77,6 +85,7 @@ function MemberList() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white p-6">
+      {/* Theme toggle */}
       <button
         onClick={toggleTheme}
         aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
@@ -93,6 +102,7 @@ function MemberList() {
         F3CCHURCH — THE BRIDGE CHURCH
       </h1>
 
+      {/* Form */}
       <form
         onSubmit={handleSubmit}
         className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-10 max-w-2xl mx-auto"
@@ -129,6 +139,36 @@ function MemberList() {
             className="border dark:border-gray-600 rounded-lg px-4 py-2"
           />
         </div>
+
+        {/* Team Member Checkbox */}
+        <div className="mt-4 flex items-center">
+          <input
+            type="checkbox"
+            name="isTeamMember"
+            checked={formData.isTeamMember}
+            onChange={handleCheckboxChange}
+            className="mr-2"
+          />
+          <label className="text-blue-800 dark:text-blue-400">Team Member</label>
+        </div>
+
+        {/* Role Input (only appears if Team Member is checked) */}
+        {formData.isTeamMember && (
+          <div className="mt-4">
+            <label htmlFor="role" className="block text-blue-800 dark:text-blue-400 mb-2">
+              Role (Optional)
+            </label>
+            <input
+              type="text"
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              placeholder="Role (e.g. Volunteer, Admin)"
+              className="border dark:border-gray-600 rounded-lg px-4 py-2 w-full"
+            />
+          </div>
+        )}
+
         <button
           type="submit"
           className="mt-4 bg-blue-700 text-white px-6 py-2 rounded-lg hover:bg-blue-800 transition"
@@ -138,6 +178,7 @@ function MemberList() {
         </button>
       </form>
 
+      {/* Member table */}
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white dark:bg-gray-800 rounded-xl shadow-xl">
           <thead>
@@ -175,6 +216,7 @@ function MemberList() {
         </table>
       </div>
 
+      {/* Modal */}
       {selectedMember && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6 relative">
@@ -190,6 +232,7 @@ function MemberList() {
             <p><strong>Name:</strong> {selectedMember.name}</p>
             <p><strong>Phone:</strong> {selectedMember.phone}</p>
             <p><strong>Address:</strong> {selectedMember.address}</p>
+            <p><strong>Role:</strong> {selectedMember.role}</p>
             <p><strong>Added On:</strong> {new Date(selectedMember.created_at).toLocaleString()}</p>
           </div>
         </div>
