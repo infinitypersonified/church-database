@@ -40,7 +40,7 @@ function MemberList() {
   const fetchMembers = async () => {
     const { data, error } = await supabase
       .from('members')
-      .select('*')
+      .select('*') // Ensure to include 'role' in the select
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -186,6 +186,7 @@ function MemberList() {
               <th className="py-3 px-6 text-left">Name</th>
               <th className="py-3 px-6 text-left">Phone</th>
               <th className="py-3 px-6 text-left">Address</th>
+              <th className="py-3 px-6 text-left">Role</th> {/* Added Role Column */}
               <th className="py-3 px-6 text-left">Date Added</th>
             </tr>
           </thead>
@@ -200,6 +201,7 @@ function MemberList() {
                   <td className="py-3 px-6">{member.name}</td>
                   <td className="py-3 px-6">{member.phone}</td>
                   <td className="py-3 px-6">{member.address}</td>
+                  <td className="py-3 px-6">{member.role || 'N/A'}</td> {/* Display Role */}
                   <td className="py-3 px-6">
                     {new Date(member.created_at).toLocaleString()}
                   </td>
@@ -207,7 +209,7 @@ function MemberList() {
               ))
             ) : (
               <tr>
-                <td colSpan="4" className="text-center py-6 text-gray-500 italic">
+                <td colSpan="5" className="text-center py-6 text-gray-500 italic">
                   No members found.
                 </td>
               </tr>
@@ -232,7 +234,7 @@ function MemberList() {
             <p><strong>Name:</strong> {selectedMember.name}</p>
             <p><strong>Phone:</strong> {selectedMember.phone}</p>
             <p><strong>Address:</strong> {selectedMember.address}</p>
-            <p><strong>Role:</strong> {selectedMember.role}</p>
+            <p><strong>Role:</strong> {selectedMember.role || 'N/A'}</p> {/* Display Role */}
             <p><strong>Added On:</strong> {new Date(selectedMember.created_at).toLocaleString()}</p>
           </div>
         </div>
