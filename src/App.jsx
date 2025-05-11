@@ -124,21 +124,34 @@ function MemberList() {
           <input type="text" name="address" value={formData.address} onChange={handleChange} placeholder="Address" required className="border dark:border-gray-600 rounded-lg px-4 py-2" />
         </div>
 
-        <div className="mt-4">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" name="isTeamMember" checked={formData.isTeamMember} onChange={handleChange} />
-            Team Member
-          </label>
-          {formData.isTeamMember && (
-            <select name="role" value={formData.role} onChange={handleChange} className="mt-2 border dark:border-gray-600 rounded-lg px-4 py-2">
-              <option value="">Select Role</option>
-              <option value="Volunteer">Volunteer</option>
-              <option value="Sub Team">Sub Team</option>
-              <option value="Senior Pastor">Senior Pastor</option>
-              <option value="Admin">Admin</option>
-            </select>
-          )}
+          {/* Team Member Checkbox */}
+        <div className="mt-4 flex items-center">
+          <input
+            type="checkbox"
+            name="isTeamMember"
+            checked={formData.isTeamMember}
+            onChange={handleCheckboxChange}
+            className="mr-2"
+          />
+          <label className="text-blue-800 dark:text-blue-400">Team Member</label>
         </div>
+
+        {/* Role Input (only appears if Team Member is checked) */}
+        {formData.isTeamMember && (
+          <div className="mt-4">
+            <label htmlFor="role" className="block text-blue-800 dark:text-blue-400 mb-2">
+              Role (Optional)
+            </label>
+            <input
+              type="text"
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              placeholder="Role (e.g. Volunteer, Admin)"
+              className="border dark:border-gray-600 rounded-lg px-4 py-2 w-full"
+            />
+          </div>
+        )}
 
         <button type="submit" className="mt-4 bg-blue-700 text-white px-6 py-2 rounded-lg hover:bg-blue-800" disabled={loading}>
           {loading ? 'Saving...' : 'Add Member'}
