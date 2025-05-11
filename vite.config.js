@@ -6,6 +6,6 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   build: {
     rollupOptions: {
-      external: ['jspdf', 'jspdf-autotable'],
+      external: ['jspdf', 'jspdf-autotable'],}},
        plugins: [react(), tailwindcss()],
 })
