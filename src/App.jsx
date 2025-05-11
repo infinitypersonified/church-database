@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient'; // Import Supabase instance
-import jsPDF from 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+import { supabase } from './supabase';
 
 function MemberList() {
   const [theme, setTheme] = useState('light');
@@ -156,17 +155,34 @@ function MemberList() {
           />
         </div>
 
-        {/* Team Member checkbox */}
+       {/* Team Member Checkbox */}
         <div className="mt-4 flex items-center">
           <input
             type="checkbox"
-            name="teamMember"
-            checked={formData.teamMember}
-            onChange={(e) => setFormData({ ...formData, teamMember: e.target.checked })}
+            name="isTeamMember"
+            checked={formData.isTeamMember}
+            onChange={handleCheckboxChange}
             className="mr-2"
           />
-          <span>Team Member</span>
+          <label className="text-blue-800 dark:text-blue-400">Team Member</label>
         </div>
+
+        {/* Role Input (only appears if Team Member is checked) */}
+        {formData.isTeamMember && (
+          <div className="mt-4">
+            <label htmlFor="role" className="block text-blue-800 dark:text-blue-400 mb-2">
+              Role (Optional)
+            </label>
+            <input
+              type="text"
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              placeholder="Role (e.g. Volunteer, Admin)"
+              className="border dark:border-gray-600 rounded-lg px-4 py-2 w-full"
+            />
+          </div>
+        )}
 
         <button
           type="submit"
