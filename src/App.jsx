@@ -47,11 +47,7 @@ function MemberList() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    if (name === 'isTeamMember') {
-      setFormData({ ...formData, [name]: checked });
-    } else {
-      setFormData({ ...formData, [name]: value });
-    }
+    setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
   };
 
   const handleSubmit = async (e) => {
@@ -124,19 +120,17 @@ function MemberList() {
           <input type="text" name="address" value={formData.address} onChange={handleChange} placeholder="Address" required className="border dark:border-gray-600 rounded-lg px-4 py-2" />
         </div>
 
-          {/* Team Member Checkbox */}
         <div className="mt-4 flex items-center">
           <input
             type="checkbox"
             name="isTeamMember"
             checked={formData.isTeamMember}
-            onChange={handleCheckboxChange}
+            onChange={handleChange}
             className="mr-2"
           />
           <label className="text-blue-800 dark:text-blue-400">Team Member</label>
         </div>
 
-        {/* Role Input (only appears if Team Member is checked) */}
         {formData.isTeamMember && (
           <div className="mt-4">
             <label htmlFor="role" className="block text-blue-800 dark:text-blue-400 mb-2">
