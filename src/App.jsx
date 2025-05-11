@@ -1,24 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from './supabase';
+import { supabase } from './supabase'; // Ensure this is correctly set up
 
 function MemberList() {
   const [theme, setTheme] = useState('light');
   const [members, setMembers] = useState([]);
   const [selectedMember, setSelectedMember] = useState(null);
-  const [formData, setFormData] = useState({ name: '', phone: '', address: '', role: '', teamMember: false });
+  const [formData, setFormData] = useState({ name: '', phone: '', address: '', role: '', isTeamMember: false });
   const [loading, setLoading] = useState(false);
   const [password, setPassword] = useState('');
-  const [isPasswordCorrect, setIsPasswordCorrect] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   // Theme setup on component mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    const systemPefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
     if (savedTheme) {
       setTheme(savedTheme);
-    } else if (systemPefersDark) {
+    } else if (systemPrefersDark) {
       setTheme('dark');
     }
   }, []);
@@ -53,6 +52,10 @@ function MemberList() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleCheckboxChange = (e) => {
+    setFormData({ ...formData, isTeamMember: e.target.checked });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -61,7 +64,7 @@ function MemberList() {
     if (error) {
       console.error('Error adding member:', error);
     } else {
-      setFormData({ name: '', phone: '', address: '', role: '', teamMember: false });
+      setFormData({ name: '', phone: '', address: '', role: '', isTeamMember: false });
       fetchMembers(); // Refresh list after new member is added
     }
   };
@@ -72,7 +75,9 @@ function MemberList() {
 
   const deleteMember = async (id) => {
     if (password === '12345') {
+      setLoading(true);
       const { error } = await supabase.from('members').delete().eq('id', id);
+      setLoading(false);
       if (error) {
         console.error('Error deleting member:', error);
       } else {
@@ -155,7 +160,7 @@ function MemberList() {
           />
         </div>
 
-       {/* Team Member Checkbox */}
+        {/* Team Member Checkbox */}
         <div className="mt-4 flex items-center">
           <input
             type="checkbox"
@@ -237,56 +242,4 @@ function MemberList() {
                 <td colSpan="6" className="text-center py-6 text-gray-500 italic">
                   No members found.
                 </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Export to PDF Button */}
-      <button
-        onClick={exportToPDF}
-        className="mt-6 bg-green-700 text-white px-6 py-2 rounded-lg hover:bg-green-800 transition"
-      >
-        Export to PDF
-      </button>
-
-      {/* Password Modal */}
-      {isPasswordModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full">
-            <h2 className="text-xl font-semibold text-blue-700 dark:text-blue-300 mb-4">Enter Password to Delete</h2>
-            <input
-              type="password"
-              className="border dark:border-gray-600 rounded-lg px-4 py-2 mb-4 w-full"
-              value={password}
-              onChange={handlePasswordChange}
-              placeholder="Password"
-            />
-            <div className="flex justify-between">
-              <button
-                onClick={() => setIsPasswordModalOpen(false)}
-                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  if (selectedMember) {
-                    deleteMember(selectedMember.id);
-                  }
-                  setIsPasswordModalOpen(false);
-                }}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default MemberList;
+              </tr
