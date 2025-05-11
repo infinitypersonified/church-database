@@ -1,60 +1,57 @@
 import React, { useState, useEffect } from 'react';
+import supabase from './supabase';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import supabase from './supabase';
 
 function MemberList() {
   const [theme, setTheme] = useState('light');
   const [members, setMembers] = useState([]);
   const [selectedMember, setSelectedMember] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    address: '',
-    teamMember: false,
-    role: ''
-  });
+  const [formData, setFormData] = useState({ name: '', phone: '', address: '', role: '', teamMember: false });
   const [loading, setLoading] = useState(false);
-  const [showRole, setShowRole] = useState(false);
-  const [deletePassword, setDeletePassword] = useState('');
+  const [password, setPassword] = useState('');
+  const [isPasswordCorrect, setIsPasswordCorrect] = useState(false);
 
+  // Theme setup on component mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const systemPefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
     if (savedTheme) {
       setTheme(savedTheme);
-    } else if (systemPrefersDark) {
+    } else if (systemPefersDark) {
       setTheme('dark');
     }
   }, []);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
+    const html = document.documentElement;
+    html.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Fetch members from Supabase on load
   useEffect(() => {
     fetchMembers();
   }, []);
 
   const fetchMembers = async () => {
-    const { data, error } = await supabase.from('members').select('*').order('created_at', { ascending: false });
-    if (error) console.error('Fetch error:', error);
-    else setMembers(data);
+    const { data, error } = await supabase
+      .from('members')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching members:', error);
+    } else {
+      setMembers(data);
+    }
   };
 
   const closeModal = () => setSelectedMember(null);
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    if (name === 'teamMember') {
-      setShowRole(checked);
-    }
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
@@ -62,126 +59,212 @@ function MemberList() {
     setLoading(true);
     const { data, error } = await supabase.from('members').insert([formData]);
     setLoading(false);
-    if (error) console.error('Insert error:', error);
-    else {
-      setFormData({ name: '', phone: '', address: '', teamMember: false, role: '' });
-      setShowRole(false);
-      fetchMembers();
+    if (error) {
+      console.error('Error adding member:', error);
+    } else {
+      setFormData({ name: '', phone: '', address: '', role: '', teamMember: false });
+      fetchMembers(); // Refresh list after new member is added
     }
   };
 
-  const toggleTheme = () => setTheme(theme === 'light' ? 'dark' : 'light');
+  const toggleTheme = () => {
+    setTheme(theme === 'light' ? 'dark' : 'light');
+  };
 
-  const handleDelete = async (id) => {
-    if (deletePassword !== '12345') {
+  const deleteMember = async (id) => {
+    if (password === '12345') {
+      const { error } = await supabase.from('members').delete().eq('id', id);
+      if (error) {
+        console.error('Error deleting member:', error);
+      } else {
+        fetchMembers(); // Refresh list after deleting member
+      }
+    } else {
       alert('Incorrect password');
-      return;
     }
-    const { error } = await supabase.from('members').delete().eq('id', id);
-    if (error) console.error('Delete error:', error);
-    else fetchMembers();
   };
 
-  const exportPDF = () => {
+  const handlePasswordChange = (e) => setPassword(e.target.value);
+
+  const exportToPDF = () => {
     const doc = new jsPDF();
-    const tableColumn = ['Name', 'Phone', 'Address', 'Team Member', 'Role', 'Date Added'];
-    const tableRows = members.map(m => [
-      m.name,
-      m.phone,
-      m.address,
-      m.teamMember ? 'Yes' : 'No',
-      m.role || 'N/A',
-      new Date(m.created_at).toLocaleString()
+    const tableColumn = ['Name', 'Phone', 'Address', 'Role', 'Date Added'];
+    const tableRows = members.map((member) => [
+      member.name,
+      member.phone,
+      member.address,
+      member.role,
+      new Date(member.created_at).toLocaleString(),
     ]);
-    doc.autoTable({ head: [tableColumn], body: tableRows });
-    doc.save('member-list.pdf');
+
+    doc.autoTable(tableColumn, tableRows);
+    doc.save('members.pdf');
   };
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white p-6">
-      <button onClick={toggleTheme} className="absolute top-6 right-6 p-2 rounded-full bg-gray-200 dark:bg-gray-700">
-        {theme === 'dark' ? '🌞' : '🌙'}
-      </button>
-      <h1 className="text-3xl font-bold text-center mb-8">F3CCHURCH — THE BRIDGE CHURCH</h1>
-      <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md max-w-3xl mx-auto">
-        <div className="grid md:grid-cols-3 gap-4">
-          <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Name" required className="border p-2 rounded" />
-          <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="Phone" required className="border p-2 rounded" />
-          <input type="text" name="address" value={formData.address} onChange={handleChange} placeholder="Address" required className="border p-2 rounded" />
-        </div>
-        <div className="mt-4">
-          <label className="inline-flex items-center">
-            <input type="checkbox" name="teamMember" checked={formData.teamMember} onChange={handleChange} className="mr-2" />
-            Is Team Member?
-          </label>
-        </div>
-        {showRole && (
-          <div className="mt-2">
-            <select name="role" value={formData.role} onChange={handleChange} className="border p-2 rounded">
-              <option value="">Select Role</option>
-              <option value="Volunteer">Volunteer</option>
-              <option value="Sub Team">Sub Team</option>
-              <option value="Senior Pastor">Senior Pastor</option>
-              <option value="Admin">Admin</option>
-            </select>
-          </div>
+      {/* Theme toggle */}
+      <button
+        onClick={toggleTheme}
+        aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+        className="absolute top-6 right-6 p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+      >
+        {theme === 'dark' ? (
+          <span className="text-yellow-300 text-xl">🌞</span>
+        ) : (
+          <span className="text-gray-700 text-xl">🌙</span>
         )}
-        <button type="submit" className="mt-4 bg-blue-600 text-white px-4 py-2 rounded">
+      </button>
+
+      <h1 className="text-3xl font-bold text-center mb-8 text-blue-900 dark:text-blue-300">
+        F3CCHURCH — THE BRIDGE CHURCH
+      </h1>
+
+      {/* Form */}
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-10 max-w-2xl mx-auto"
+      >
+        <h2 className="text-xl font-semibold mb-4 text-blue-800 dark:text-blue-400">Add New Member</h2>
+        <div className="grid md:grid-cols-3 gap-4">
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            placeholder="Name"
+            required
+            className="border dark:border-gray-600 rounded-lg px-4 py-2"
+          />
+          <input
+            type="tel"
+            name="phone"
+            value={formData.phone}
+            onChange={handleChange}
+            placeholder="Phone Number"
+            required
+            className="border dark:border-gray-600 rounded-lg px-4 py-2"
+          />
+          <input
+            type="text"
+            name="address"
+            value={formData.address}
+            onChange={handleChange}
+            placeholder="Address"
+            required
+            className="border dark:border-gray-600 rounded-lg px-4 py-2"
+          />
+        </div>
+
+        {/* Role input */}
+        {formData.teamMember && (
+          <select
+            name="role"
+            value={formData.role}
+            onChange={handleChange}
+            className="border dark:border-gray-600 rounded-lg px-4 py-2 mt-4"
+          >
+            <option value="">Select Role</option>
+            <option value="Volunteer">Volunteer</option>
+            <option value="Sub Team">Sub Team</option>
+            <option value="Senior Pastor">Senior Pastor</option>
+            <option value="Admin">Admin</option>
+          </select>
+        )}
+
+        {/* Team Member checkbox */}
+        <div className="mt-4 flex items-center">
+          <input
+            type="checkbox"
+            name="teamMember"
+            checked={formData.teamMember}
+            onChange={(e) => setFormData({ ...formData, teamMember: e.target.checked })}
+            className="mr-2"
+          />
+          <span>Team Member</span>
+        </div>
+
+        <button
+          type="submit"
+          className="mt-4 bg-blue-700 text-white px-6 py-2 rounded-lg hover:bg-blue-800 transition"
+          disabled={loading}
+        >
           {loading ? 'Saving...' : 'Add Member'}
         </button>
       </form>
 
-      <div className="max-w-6xl mx-auto mt-10">
-        <div className="mb-4 flex justify-between items-center">
-          <input type="password" placeholder="Delete Password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} className="border px-2 py-1 rounded" />
-          <button onClick={exportPDF} className="bg-green-600 text-white px-4 py-2 rounded">Export to PDF</button>
-        </div>
-
-        <table className="w-full text-left border">
+      {/* Member table */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white dark:bg-gray-800 rounded-xl shadow-xl">
           <thead>
-            <tr className="bg-blue-700 text-white">
-              <th className="p-2">Name</th>
-              <th className="p-2">Phone</th>
-              <th className="p-2">Address</th>
-              <th className="p-2">Team Member</th>
-              <th className="p-2">Role</th>
-              <th className="p-2">Date</th>
-              <th className="p-2">Delete</th>
+            <tr className="bg-blue-700 dark:bg-blue-900 text-white">
+              <th className="py-3 px-6 text-left">Name</th>
+              <th className="py-3 px-6 text-left">Phone</th>
+              <th className="py-3 px-6 text-left">Address</th>
+              <th className="py-3 px-6 text-left">Role</th>
+              <th className="py-3 px-6 text-left">Date Added</th>
+              <th className="py-3 px-6 text-left">Action</th>
             </tr>
           </thead>
           <tbody>
-            {members.map((m) => (
-              <tr key={m.id} className="border-b hover:bg-gray-100 dark:hover:bg-gray-700">
-                <td className="p-2">{m.name}</td>
-                <td className="p-2">{m.phone}</td>
-                <td className="p-2">{m.address}</td>
-                <td className="p-2">{m.teamMember ? 'Yes' : 'No'}</td>
-                <td className="p-2">{m.role || 'N/A'}</td>
-                <td className="p-2">{new Date(m.created_at).toLocaleString()}</td>
-                <td className="p-2">
-                  <button onClick={() => handleDelete(m.id)} className="text-red-600 hover:underline">Delete</button>
-                </td>
-              </tr>
-            ))}
-            {members.length === 0 && (
+            {members.length > 0 ? (
+              members.map((member) => (
+                <tr
+                  key={member.id}
+                  onClick={() => setSelectedMember(member)}
+                  className="border-b dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-blue-700 cursor-pointer transition duration-150"
+                >
+                  <td className="py-3 px-6">{member.name}</td>
+                  <td className="py-3 px-6">{member.phone}</td>
+                  <td className="py-3 px-6">{member.address}</td>
+                  <td className="py-3 px-6">{member.role}</td>
+                  <td className="py-3 px-6">{new Date(member.created_at).toLocaleString()}</td>
+                  <td className="py-3 px-6">
+                    <button
+                      className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                      onClick={() => deleteMember(member.id)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
               <tr>
-                <td colSpan="7" className="text-center py-4">No members found</td>
+                <td colSpan="6" className="text-center py-6 text-gray-500 italic">
+                  No members found.
+                </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
 
+      {/* Export to PDF Button */}
+      <button
+        onClick={exportToPDF}
+        className="mt-6 bg-green-700 text-white px-6 py-2 rounded-lg hover:bg-green-800 transition"
+      >
+        Export to PDF
+      </button>
+
+      {/* Modal */}
       {selectedMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md relative">
-            <button className="absolute top-2 right-2" onClick={closeModal}>&times;</button>
-            <h2 className="text-xl font-bold mb-4">Member Details</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6 relative">
+            <button
+              className="absolute top-2 right-2 text-gray-500 hover:text-red-600 text-xl"
+              onClick={closeModal}
+            >
+              &times;
+            </button>
+            <h2 className="text-2xl font-bold mb-4 text-blue-800 dark:text-blue-400">
+              Member Details
+            </h2>
             <p><strong>Name:</strong> {selectedMember.name}</p>
             <p><strong>Phone:</strong> {selectedMember.phone}</p>
             <p><strong>Address:</strong> {selectedMember.address}</p>
-            <p><strong>Team Member:</strong> {selectedMember.teamMember ? 'Yes' : 'No'}</p>
-            <p><strong>Role:</strong> {selectedMember.role || 'N/A'}</p>
+            <p><strong>Role:</strong> {selectedMember.role}</p>
             <p><strong>Added On:</strong> {new Date(selectedMember.created_at).toLocaleString()}</p>
           </div>
         </div>
