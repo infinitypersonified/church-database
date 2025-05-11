@@ -87,8 +87,7 @@ function MemberList() {
   };
 
   const exportToPDF = () => {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+    const doc = new window.jspdf.jsPDF();
     const tableColumn = ['Name', 'Phone', 'Address', 'Role', 'Date Added'];
     const tableRows = members.map((member) => [
       member.name,
@@ -108,7 +107,6 @@ function MemberList() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white p-6">
-      {/* Theme Toggle */}
       <button
         onClick={toggleTheme}
         className="absolute top-6 right-6 p-2 rounded-full bg-gray-200 dark:bg-gray-700"
@@ -120,7 +118,6 @@ function MemberList() {
         F3CCHURCH — THE BRIDGE CHURCH
       </h1>
 
-      {/* Add Member Form */}
       <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-10 max-w-2xl mx-auto">
         <h2 className="text-xl font-semibold mb-4 text-blue-800 dark:text-blue-400">Add New Member</h2>
         <div className="grid md:grid-cols-3 gap-4">
@@ -146,14 +143,12 @@ function MemberList() {
         </button>
       </form>
 
-      {/* Export Button */}
       <div className="flex justify-center mb-6">
         <button onClick={exportToPDF} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
           Export to PDF
         </button>
       </div>
 
-      {/* Member Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white dark:bg-gray-800 rounded-xl shadow-xl">
           <thead>
@@ -191,7 +186,6 @@ function MemberList() {
         </table>
       </div>
 
-      {/* Password Modal */}
       {isPasswordModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl w-80 text-center">
