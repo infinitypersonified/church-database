@@ -1,239 +1,208 @@
-import React, { useState, useEffect } from 'react';
-import supabase from './supabase';
+import React, { useEffect, useState } from "react";
+import { supabase } from "../supabaseClient";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import * as XLSX from "xlsx";
 
-function MemberList() {
-  const [theme, setTheme] = useState('light');
+const MemberList = () => {
   const [members, setMembers] = useState([]);
-  const [formData, setFormData] = useState({ name: '', phone: '', address: '', isTeamMember: false, role: '' });
-  const [loading, setLoading] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [password, setPassword] = useState('');
-  const [memberToDelete, setMemberToDelete] = useState(null);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else if (systemPrefersDark) {
-      setTheme('dark');
-    }
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredMembers, setFilteredMembers] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [showPdfPasswordModal, setShowPdfPasswordModal] = useState(false);
+  const [pdfPassword, setPdfPassword] = useState("");
+  const [pdfError, setPdfError] = useState("");
 
   useEffect(() => {
     fetchMembers();
   }, []);
 
-  const fetchMembers = async () => {
-    const { data, error } = await supabase
-      .from('members')
-      .select('*')
-      .order('created_at', { ascending: false });
+  useEffect(() => {
+    setFilteredMembers(
+      members.filter((member) =>
+        member.full_name.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    );
+  }, [searchTerm, members]);
 
+  const fetchMembers = async () => {
+    const { data, error } = await supabase.from("members").select("*");
     if (error) {
-      console.error('Error fetching members:', error);
+      console.error("Error fetching members:", error.message);
     } else {
       setMembers(data);
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    const { data, error } = await supabase.from('members').insert([formData]);
-    setLoading(false);
-    if (error) {
-      console.error('Error adding member:', error);
-    } else {
-      setFormData({ name: '', phone: '', address: '', isTeamMember: false, role: '' });
-      fetchMembers();
-    }
-  };
-
-  const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
-  };
-
   const confirmDelete = (member) => {
-    setMemberToDelete(member);
-    setShowPasswordModal(true);
-    setError('');
+    setSelectedMember(member);
+    setShowDeleteModal(true);
   };
 
-  const handleDelete = async () => {
-    if (password === '12345') {
-      if (!memberToDelete?.id) {
-        setError('No member selected to delete.');
-        return;
-      }
-
-      const { error } = await supabase
-        .from('members')
-        .delete()
-        .eq('id', memberToDelete.id);
-
-      if (error) {
-        console.error('Error deleting member:', error);
-        setError('Error deleting member');
-      } else {
-        fetchMembers();
-        setShowPasswordModal(false);
-        setPassword('');
-        setError('');
-      }
+  const deleteMember = async () => {
+    const { error } = await supabase
+      .from("members")
+      .delete()
+      .eq("id", selectedMember.id);
+    if (error) {
+      console.error("Error deleting member:", error.message);
     } else {
-      setError('Incorrect password. Please try again.');
+      fetchMembers();
+      setShowDeleteModal(false);
     }
+  };
+
+  const exportToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(filteredMembers);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Members");
+    XLSX.writeFile(workbook, "member_list.xlsx");
   };
 
   const exportToPDF = () => {
-    const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-
-    doc.text('F3CCHURCH — THE BRIDGE CHURCH', 14, 15);
-
-    const tableData = members.map(member => [
-      member.name,
-      member.phone,
-      member.address,
-      member.role || '-',
-      new Date(member.created_at).toLocaleString()
-    ]);
-
+    doc.text("Member List", 14, 10);
     doc.autoTable({
-      head: [['Name', 'Phone', 'Address', 'Role', 'Date Added']],
-      body: tableData,
-      startY: 25,
-      theme: 'striped'
+      startY: 20,
+      head: [["Full Name", "Email", "Phone", "Age", "Gender"]],
+      body: filteredMembers.map((member) => [
+        member.full_name,
+        member.email,
+        member.phone,
+        member.age,
+        member.gender,
+      ]),
     });
-
-    doc.save('members-list.pdf');
+    doc.save("member_list.pdf");
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white p-6">
-      <button
-        onClick={toggleTheme}
-        className="absolute top-6 right-6 p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
-      >
-        {theme === 'dark' ? '🌞' : '🌙'}
-      </button>
-
-      <h1 className="text-3xl font-bold text-center mb-8 text-blue-900 dark:text-blue-300">
-        F3CCHURCH — THE BRIDGE CHURCH
-      </h1>
-
-      <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-10 max-w-2xl mx-auto">
-        <h2 className="text-xl font-semibold mb-4 text-blue-800 dark:text-blue-400">Add New Member</h2>
-        <div className="grid md:grid-cols-3 gap-4">
-          <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Name" required className="border dark:border-gray-600 rounded-lg px-4 py-2" />
-          <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="Phone Number" required className="border dark:border-gray-600 rounded-lg px-4 py-2" />
-          <input type="text" name="address" value={formData.address} onChange={handleChange} placeholder="Address" required className="border dark:border-gray-600 rounded-lg px-4 py-2" />
-        </div>
-
-        <div className="mt-4 flex items-center">
-          <input
-            type="checkbox"
-            name="isTeamMember"
-            checked={formData.isTeamMember}
-            onChange={handleChange}
-            className="mr-2"
-          />
-          <label className="text-blue-800 dark:text-blue-400">Team Member</label>
-        </div>
-
-        {formData.isTeamMember && (
-          <div className="mt-4">
-            <label htmlFor="role" className="block text-blue-800 dark:text-blue-400 mb-2">
-              Role (Optional)
-            </label>
-            <input
-              type="text"
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              placeholder="Role (e.g. Volunteer, Admin)"
-              className="border dark:border-gray-600 rounded-lg px-4 py-2 w-full"
-            />
-          </div>
-        )}
-
-        <button type="submit" className="mt-4 bg-blue-700 text-white px-6 py-2 rounded-lg hover:bg-blue-800" disabled={loading}>
-          {loading ? 'Saving...' : 'Add Member'}
-        </button>
-      </form>
-
-      <div className="flex justify-end mb-4">
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Church Members</h1>
+      <div className="flex gap-4 mb-4">
+        <input
+          type="text"
+          placeholder="Search by name"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="border px-4 py-2 rounded w-full"
+        />
         <button
-          onClick={exportToPDF}
+          onClick={exportToExcel}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          Export as Excel
+        </button>
+        <button
+          onClick={() => setShowPdfPasswordModal(true)}
           className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
         >
           Export as PDF
         </button>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white dark:bg-gray-800 rounded-xl shadow-xl">
-          <thead>
-            <tr className="bg-blue-700 dark:bg-blue-900 text-white">
-              <th className="py-3 px-6 text-left">Name</th>
-              <th className="py-3 px-6 text-left">Phone</th>
-              <th className="py-3 px-6 text-left">Address</th>
-              <th className="py-3 px-6 text-left">Role</th>
-              <th className="py-3 px-6 text-left">Date Added</th>
-              <th className="py-3 px-6 text-left">Actions</th>
+      <table className="w-full table-auto border-collapse">
+        <thead>
+          <tr className="bg-gray-200">
+            <th className="border px-4 py-2">Full Name</th>
+            <th className="border px-4 py-2">Email</th>
+            <th className="border px-4 py-2">Phone</th>
+            <th className="border px-4 py-2">Age</th>
+            <th className="border px-4 py-2">Gender</th>
+            <th className="border px-4 py-2">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredMembers.map((member) => (
+            <tr key={member.id}>
+              <td className="border px-4 py-2">{member.full_name}</td>
+              <td className="border px-4 py-2">{member.email}</td>
+              <td className="border px-4 py-2">{member.phone}</td>
+              <td className="border px-4 py-2">{member.age}</td>
+              <td className="border px-4 py-2">{member.gender}</td>
+              <td className="border px-4 py-2 text-center">
+                <button
+                  onClick={() => confirmDelete(member)}
+                  className="bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
+                >
+                  Delete
+                </button>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {members.length > 0 ? (
-              members.map((member) => (
-                <tr key={member.id} className="border-b dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-blue-700">
-                  <td className="py-3 px-6">{member.name}</td>
-                  <td className="py-3 px-6">{member.phone}</td>
-                  <td className="py-3 px-6">{member.address}</td>
-                  <td className="py-3 px-6">{member.role || '-'}</td>
-                  <td className="py-3 px-6">{new Date(member.created_at).toLocaleString()}</td>
-                  <td className="py-3 px-6">
-                    <button onClick={() => confirmDelete(member)} className="bg-red-600 text-white px-4 py-1 rounded hover:bg-red-700">Delete</button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="6" className="text-center py-6 text-gray-500 italic">No members found.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
 
-      {showPasswordModal && (
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-sm w-full p-6">
-            <h2 className="text-xl font-bold mb-4">Enter Password to Delete</h2>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className="border w-full px-4 py-2 rounded mb-4" />
-            {error && <p className="text-red-600 mb-2">{error}</p>}
+            <h2 className="text-xl font-bold mb-4">Confirm Delete</h2>
+            <p>Are you sure you want to delete {selectedMember?.full_name}?</p>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 rounded bg-gray-300 dark:bg-gray-600"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteMember}
+                className="px-4 py-2 rounded bg-red-600 text-white"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PDF Password Modal */}
+      {showPdfPasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-sm w-full p-6">
+            <h2 className="text-xl font-bold mb-4">Enter Password to Export PDF</h2>
+            <input
+              type="password"
+              value={pdfPassword}
+              onChange={(e) => setPdfPassword(e.target.value)}
+              placeholder="Enter password"
+              className="border w-full px-4 py-2 rounded mb-4"
+            />
+            {pdfError && <p className="text-red-600 mb-2">{pdfError}</p>}
             <div className="flex justify-end gap-2">
-              <button onClick={() => setShowPasswordModal(false)} className="px-4 py-2 rounded bg-gray-300 dark:bg-gray-600">Cancel</button>
-              <button onClick={handleDelete} className="px-4 py-2 rounded bg-red-600 text-white">Confirm Delete</button>
+              <button
+                onClick={() => {
+                  setShowPdfPasswordModal(false);
+                  setPdfPassword("");
+                  setPdfError("");
+                }}
+                className="px-4 py-2 rounded bg-gray-300 dark:bg-gray-600"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (pdfPassword === "12345") {
+                    exportToPDF();
+                    setShowPdfPasswordModal(false);
+                    setPdfPassword("");
+                    setPdfError("");
+                  } else {
+                    setPdfError("Incorrect password. Try again.");
+                  }
+                }}
+                className="px-4 py-2 rounded bg-green-600 text-white"
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>
       )}
     </div>
   );
-}
+};
 
 export default MemberList;
