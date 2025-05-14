@@ -4,7 +4,6 @@ import supabase from './supabase';
 function MemberList() {
   const [theme, setTheme] = useState('light');
   const [members, setMembers] = useState([]);
-  const [selectedMember, setSelectedMember] = useState(null);
   const [formData, setFormData] = useState({ name: '', phone: '', address: '', isTeamMember: false, role: '' });
   const [loading, setLoading] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -14,11 +13,11 @@ function MemberList() {
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    const systemPefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
     if (savedTheme) {
       setTheme(savedTheme);
-    } else if (systemPefersDark) {
+    } else if (systemPrefersDark) {
       setTheme('dark');
     }
   }, []);
@@ -99,6 +98,30 @@ function MemberList() {
     }
   };
 
+  const exportToPDF = () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.text('F3CCHURCH — THE BRIDGE CHURCH', 14, 15);
+
+    const tableData = members.map(member => [
+      member.name,
+      member.phone,
+      member.address,
+      member.role || '-',
+      new Date(member.created_at).toLocaleString()
+    ]);
+
+    doc.autoTable({
+      head: [['Name', 'Phone', 'Address', 'Role', 'Date Added']],
+      body: tableData,
+      startY: 25,
+      theme: 'striped'
+    });
+
+    doc.save('members-list.pdf');
+  };
+
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white p-6">
       <button
@@ -151,6 +174,15 @@ function MemberList() {
           {loading ? 'Saving...' : 'Add Member'}
         </button>
       </form>
+
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={exportToPDF}
+          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+        >
+          Export as PDF
+        </button>
+      </div>
 
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white dark:bg-gray-800 rounded-xl shadow-xl">
