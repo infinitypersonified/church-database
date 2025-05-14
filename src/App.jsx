@@ -1,130 +1,123 @@
-import React, { useEffect, useState } from "react";
-import { supabase } from "../supabaseClient";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
-import * as XLSX from "xlsx";
+import React, { useState, useEffect } from 'react'
+import { supabase } from '../supabaseClient'
 
-const MemberList = () => {
-  const [members, setMembers] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filteredMembers, setFilteredMembers] = useState([]);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [showPdfPasswordModal, setShowPdfPasswordModal] = useState(false);
-  const [pdfPassword, setPdfPassword] = useState("");
-  const [pdfError, setPdfError] = useState("");
+const MemberDashboard = () => {
+  const [members, setMembers] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filteredMembers, setFilteredMembers] = useState([])
+  const [deleteModal, setDeleteModal] = useState({ show: false, memberId: null })
+
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exportPassword, setExportPassword] = useState('')
+  const [exportError, setExportError] = useState('')
 
   useEffect(() => {
-    fetchMembers();
-  }, []);
+    fetchMembers()
+  }, [])
 
   useEffect(() => {
-    setFilteredMembers(
-      members.filter((member) =>
-        member.full_name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    );
-  }, [searchTerm, members]);
+    const results = members.filter((member) =>
+      member.name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    setFilteredMembers(results)
+  }, [searchTerm, members])
 
   const fetchMembers = async () => {
-    const { data, error } = await supabase.from("members").select("*");
-    if (error) {
-      console.error("Error fetching members:", error.message);
-    } else {
-      setMembers(data);
+    const { data, error } = await supabase.from('members').select('*')
+    if (error) console.error('Error fetching members:', error)
+    else setMembers(data)
+  }
+
+  const handleDelete = async (id) => {
+    const { error } = await supabase.from('members').delete().eq('id', id)
+    if (error) console.error('Error deleting member:', error)
+    else {
+      fetchMembers()
+      setDeleteModal({ show: false, memberId: null })
     }
-  };
+  }
 
-  const confirmDelete = (member) => {
-    setSelectedMember(member);
-    setShowDeleteModal(true);
-  };
-
-  const deleteMember = async () => {
-    const { error } = await supabase
-      .from("members")
-      .delete()
-      .eq("id", selectedMember.id);
-    if (error) {
-      console.error("Error deleting member:", error.message);
-    } else {
-      fetchMembers();
-      setShowDeleteModal(false);
+  const handleExportPDF = () => {
+    if (exportPassword !== '12345') {
+      setExportError('Incorrect password. Please try again.')
+      return
     }
-  };
 
-  const exportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(filteredMembers);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Members");
-    XLSX.writeFile(workbook, "member_list.xlsx");
-  };
+    const { jsPDF } = window.jspdf
+    const doc = new jsPDF()
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    doc.text("Member List", 14, 10);
-    doc.autoTable({
-      startY: 20,
-      head: [["Full Name", "Email", "Phone", "Age", "Gender"]],
-      body: filteredMembers.map((member) => [
-        member.full_name,
-        member.email,
+    const tableColumn = ['Name', 'Phone', 'Address', 'Role', 'Date Added']
+    const tableRows = []
+
+    members.forEach(member => {
+      const memberData = [
+        member.name,
         member.phone,
-        member.age,
-        member.gender,
-      ]),
-    });
-    doc.save("member_list.pdf");
-  };
+        member.address,
+        member.role || '-',
+        new Date(member.created_at).toLocaleString(),
+      ]
+      tableRows.push(memberData)
+    })
+
+    doc.text('F3CCHURCH – Member List', 14, 15)
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+      startY: 20,
+    })
+
+    doc.save('member_list.pdf')
+
+    setShowExportModal(false)
+    setExportPassword('')
+    setExportError('')
+  }
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Church Members</h1>
-      <div className="flex gap-4 mb-4">
-        <input
-          type="text"
-          placeholder="Search by name"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="border px-4 py-2 rounded w-full"
-        />
-        <button
-          onClick={exportToExcel}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          Export as Excel
-        </button>
-        <button
-          onClick={() => setShowPdfPasswordModal(true)}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-        >
-          Export as PDF
-        </button>
-      </div>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-4">Member Dashboard</h1>
 
-      <table className="w-full table-auto border-collapse">
+      <input
+        type="text"
+        placeholder="Search members..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="border px-4 py-2 mb-4 w-full rounded"
+      />
+
+      <button
+        onClick={() => setShowExportModal(true)}
+        className="mb-4 bg-green-700 text-white px-6 py-2 rounded hover:bg-green-800"
+      >
+        Export PDF
+      </button>
+
+      <table className="min-w-full border rounded">
         <thead>
           <tr className="bg-gray-200">
-            <th className="border px-4 py-2">Full Name</th>
-            <th className="border px-4 py-2">Email</th>
-            <th className="border px-4 py-2">Phone</th>
-            <th className="border px-4 py-2">Age</th>
-            <th className="border px-4 py-2">Gender</th>
-            <th className="border px-4 py-2">Action</th>
+            <th className="py-2 px-4 border">Name</th>
+            <th className="py-2 px-4 border">Phone</th>
+            <th className="py-2 px-4 border">Address</th>
+            <th className="py-2 px-4 border">Role</th>
+            <th className="py-2 px-4 border">Date Added</th>
+            <th className="py-2 px-4 border">Action</th>
           </tr>
         </thead>
         <tbody>
           {filteredMembers.map((member) => (
             <tr key={member.id}>
-              <td className="border px-4 py-2">{member.full_name}</td>
-              <td className="border px-4 py-2">{member.email}</td>
-              <td className="border px-4 py-2">{member.phone}</td>
-              <td className="border px-4 py-2">{member.age}</td>
-              <td className="border px-4 py-2">{member.gender}</td>
-              <td className="border px-4 py-2 text-center">
+              <td className="py-2 px-4 border">{member.name}</td>
+              <td className="py-2 px-4 border">{member.phone}</td>
+              <td className="py-2 px-4 border">{member.address}</td>
+              <td className="py-2 px-4 border">{member.role || '-'}</td>
+              <td className="py-2 px-4 border">
+                {new Date(member.created_at).toLocaleString()}
+              </td>
+              <td className="py-2 px-4 border">
                 <button
-                  onClick={() => confirmDelete(member)}
-                  className="bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
+                  onClick={() => setDeleteModal({ show: true, memberId: member.id })}
+                  className="bg-red-500 text-white px-3 py-1 rounded"
                 >
                   Delete
                 </button>
@@ -134,22 +127,22 @@ const MemberList = () => {
         </tbody>
       </table>
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
+      {/* Delete Modal */}
+      {deleteModal.show && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-sm w-full p-6">
+          <div className="bg-white p-6 rounded shadow-lg">
             <h2 className="text-xl font-bold mb-4">Confirm Delete</h2>
-            <p>Are you sure you want to delete {selectedMember?.full_name}?</p>
-            <div className="flex justify-end gap-2 mt-4">
+            <p>Are you sure you want to delete this member?</p>
+            <div className="mt-4 flex justify-end gap-2">
               <button
-                onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 rounded bg-gray-300 dark:bg-gray-600"
+                onClick={() => setDeleteModal({ show: false, memberId: null })}
+                className="px-4 py-2 bg-gray-300 rounded"
               >
                 Cancel
               </button>
               <button
-                onClick={deleteMember}
-                className="px-4 py-2 rounded bg-red-600 text-white"
+                onClick={() => handleDelete(deleteModal.memberId)}
+                className="px-4 py-2 bg-red-600 text-white rounded"
               >
                 Delete
               </button>
@@ -158,51 +151,38 @@ const MemberList = () => {
         </div>
       )}
 
-      {/* PDF Password Modal */}
-      {showPdfPasswordModal && (
+      {/* Export Modal */}
+      {showExportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-sm w-full p-6">
+          <div className="bg-white p-6 rounded shadow-lg max-w-sm w-full">
             <h2 className="text-xl font-bold mb-4">Enter Password to Export PDF</h2>
             <input
               type="password"
-              value={pdfPassword}
-              onChange={(e) => setPdfPassword(e.target.value)}
+              value={exportPassword}
+              onChange={(e) => setExportPassword(e.target.value)}
               placeholder="Enter password"
-              className="border w-full px-4 py-2 rounded mb-4"
+              className="border w-full px-4 py-2 rounded mb-2"
             />
-            {pdfError && <p className="text-red-600 mb-2">{pdfError}</p>}
+            {exportError && <p className="text-red-600 mb-2">{exportError}</p>}
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => {
-                  setShowPdfPasswordModal(false);
-                  setPdfPassword("");
-                  setPdfError("");
-                }}
-                className="px-4 py-2 rounded bg-gray-300 dark:bg-gray-600"
+                onClick={() => setShowExportModal(false)}
+                className="px-4 py-2 bg-gray-300 rounded"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  if (pdfPassword === "12345") {
-                    exportToPDF();
-                    setShowPdfPasswordModal(false);
-                    setPdfPassword("");
-                    setPdfError("");
-                  } else {
-                    setPdfError("Incorrect password. Try again.");
-                  }
-                }}
-                className="px-4 py-2 rounded bg-green-600 text-white"
+                onClick={handleExportPDF}
+                className="px-4 py-2 bg-green-700 text-white rounded"
               >
-                Confirm
+                Export
               </button>
             </div>
           </div>
         </div>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default MemberList;
+export default MemberDashboard
